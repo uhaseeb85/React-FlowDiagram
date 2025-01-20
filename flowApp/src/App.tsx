@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PlusCircle, X, ChevronDown, ChevronUp, ArrowRight, ArrowDown, Play, StopCircle, Check, XCircle, Download, Upload, Moon, Sun, Save } from 'lucide-react';
 import FlowSimulation from './components/FlowSimulation';
 import { DarkModeProvider, useDarkMode } from './context/DarkModeContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Types
 type StepType = 'normal' | 'success' | 'failure';
@@ -48,6 +49,10 @@ const FlowDiagramBuilder = () => {
   }>>([]);
   const [showSimulation, setShowSimulation] = useState(false);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<{
+    type: 'add' | 'delete' | 'save' | 'update';
+    message: string;
+  } | null>(null);
 
   // Auto-save whenever steps change
   useEffect(() => {
@@ -71,6 +76,11 @@ const FlowDiagramBuilder = () => {
 
     setSteps([...steps, newStep]);
     setNewStepTitle('');
+    setLastAction({
+      type: 'add',
+      message: 'Step added successfully'
+    });
+    setTimeout(() => setLastAction(null), 2000);
   };
 
   const addSubStep = (stepId: string) => {
@@ -141,6 +151,11 @@ const FlowDiagramBuilder = () => {
 
   const deleteStep = (stepId: string) => {
     setSteps(steps.filter(step => step.id !== stepId));
+    setLastAction({
+      type: 'delete',
+      message: 'Step deleted'
+    });
+    setTimeout(() => setLastAction(null), 2000);
   };
 
   const deleteSubStep = (stepId: string, subStepId: string) => {
@@ -257,12 +272,42 @@ const FlowDiagramBuilder = () => {
   // Manual save function
   const saveConfiguration = () => {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(steps));
-    // Show a toast or notification
-    alert('Configuration saved successfully!');
+    setLastAction({
+      type: 'save',
+      message: 'Configuration saved'
+    });
+    setTimeout(() => setLastAction(null), 2000);
   };
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-800'}`}>
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {lastAction && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg ${
+              isDarkMode ? 'bg-gray-800' : 'bg-white'
+            } border ${
+              lastAction.type === 'delete' 
+                ? 'border-red-500' 
+                : lastAction.type === 'add'
+                ? 'border-green-500'
+                : 'border-blue-500'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {lastAction.type === 'delete' && <X className="w-4 h-4 text-red-500" />}
+              {lastAction.type === 'add' && <Check className="w-4 h-4 text-green-500" />}
+              {lastAction.type === 'save' && <Save className="w-4 h-4 text-blue-500" />}
+              <span className="text-sm">{lastAction.message}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
         <div className="p-4 max-w-[1600px] mx-auto flex justify-between items-center">
@@ -273,10 +318,11 @@ const FlowDiagramBuilder = () => {
             {/* Save Button */}
             <button
               onClick={saveConfiguration}
-              className={`px-6 py-2.5 rounded-lg flex items-center gap-2 font-semibold ${
+              className={`px-6 py-2.5 rounded-lg flex items-center gap-2 font-semibold 
+                transition-all duration-200 active:scale-95 ${
                 isDarkMode 
-                  ? 'bg-purple-600 hover:bg-purple-700' 
-                  : 'bg-purple-100 text-purple-600 hover:bg-purple-200'
+                  ? 'bg-purple-600 hover:bg-purple-700 active:bg-purple-800' 
+                  : 'bg-purple-100 text-purple-600 hover:bg-purple-200 active:bg-purple-300'
               }`}
             >
               <Save className="w-5 h-5" />
@@ -378,20 +424,17 @@ const FlowDiagramBuilder = () => {
               <div
                 key={step.id}
                 onClick={() => setSelectedStepId(step.id)}
-                className={`p-3 rounded-lg cursor-pointer transition-colors duration-200 ${
+                className={`p-3 rounded-lg cursor-pointer 
+                  transition-all duration-200 
+                  hover:translate-x-1
+                  active:scale-98 ${
                   selectedStepId === step.id
                     ? isDarkMode 
-                      ? 'bg-gray-700' 
-                      : 'bg-blue-50'
+                      ? 'bg-gray-700 ring-2 ring-blue-500' 
+                      : 'bg-blue-50 ring-2 ring-blue-500'
                     : isDarkMode 
                       ? 'hover:bg-gray-800' 
                       : 'hover:bg-gray-50'
-                } ${
-                  step.type === 'success'
-                    ? 'border-l-4 border-green-500'
-                    : step.type === 'failure'
-                    ? 'border-l-4 border-red-500'
-                    : ''
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -425,7 +468,9 @@ const FlowDiagramBuilder = () => {
                     deleteStep(selectedStep.id);
                     setSelectedStepId(null);
                   }}
-                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                  className="p-2 text-red-500 hover:bg-red-50 active:bg-red-100 
+                    rounded-lg transition-all duration-200 
+                    hover:text-red-600 active:text-red-700"
                 >
                   <X className="w-5 h-5" />
                 </button>
