@@ -501,8 +501,11 @@ const FlowDiagramBuilder = () => {
                                 }`}
                               >
                                 <option value="">Select Step</option>
-                                {steps.filter(s => s.id !== step.id).map(s => (
-                                  <option key={s.id} value={s.id}>{s.title}</option>
+                                {steps.map(s => (
+                                  <option key={s.id} value={s.id}>
+                                    {s.title}
+                                    {s.subSteps.length > 0 ? ` (${s.subSteps.length} sub-steps)` : ''}
+                                  </option>
                                 ))}
                               </select>
                             )}
@@ -542,8 +545,11 @@ const FlowDiagramBuilder = () => {
                                 }`}
                               >
                                 <option value="">Select Step</option>
-                                {steps.filter(s => s.id !== step.id).map(s => (
-                                  <option key={s.id} value={s.id}>{s.title}</option>
+                                {steps.map(s => (
+                                  <option key={s.id} value={s.id}>
+                                    {s.title}
+                                    {s.subSteps.length > 0 ? ` (${s.subSteps.length} sub-steps)` : ''}
+                                  </option>
                                 ))}
                               </select>
                             )}
