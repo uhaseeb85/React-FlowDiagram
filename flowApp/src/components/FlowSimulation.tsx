@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, RotateCcw, Camera, ArrowRight, Layout, Check, XCircle } from 'lucide-react';
+import { useDarkMode } from '../context/DarkModeContext';
 
 interface SubStep {
   id: string;
@@ -26,6 +27,7 @@ interface FlowSimulationProps {
 }
 
 const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
+  const { isDarkMode } = useDarkMode();
   // Initialize with the first step
   const firstStep = steps[0];
   const [currentStepId, setCurrentStepId] = useState<string | null>(firstStep?.id || null);
@@ -129,35 +131,51 @@ const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
   const visibleSteps = steps.filter(step => visitedStepIds.includes(step.id));
 
   return (
-    <div className="fixed inset-0 bg-[#1a1f2e] text-white">
+    <div className={`fixed inset-0 ${isDarkMode ? 'bg-[#1a1f2e]' : 'bg-gray-100'} text-${isDarkMode ? 'white' : 'gray-800'}`}>
       {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b border-gray-700">
+      <div className={`flex justify-between items-center p-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
         <h2 className="text-xl font-bold">Flow Simulation</h2>
         <div className="flex items-center gap-4">
           <button
             onClick={() => setIsVerticalLayout(!isVerticalLayout)}
-            className="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 flex items-center gap-2"
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+              isDarkMode 
+                ? 'bg-gray-800 hover:bg-gray-700' 
+                : 'bg-white hover:bg-gray-100'
+            }`}
           >
             <Layout className="w-4 h-4" />
             {isVerticalLayout ? 'Horizontal Layout' : 'Vertical Layout'}
           </button>
           <button
             onClick={exportImage}
-            className="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 flex items-center gap-2"
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+              isDarkMode 
+                ? 'bg-gray-800 hover:bg-gray-700' 
+                : 'bg-white hover:bg-gray-100'
+            }`}
           >
             <Camera className="w-4 h-4" />
             Export Image
           </button>
           <button
             onClick={resetSimulation}
-            className="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 flex items-center gap-2"
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+              isDarkMode 
+                ? 'bg-gray-800 hover:bg-gray-700' 
+                : 'bg-white hover:bg-gray-100'
+            }`}
           >
             <RotateCcw className="w-4 h-4" />
             Reset
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700"
+            className={`px-4 py-2 rounded-lg ${
+              isDarkMode 
+                ? 'bg-gray-800 hover:bg-gray-700' 
+                : 'bg-white hover:bg-gray-100'
+            }`}
           >
             Close
           </button>
