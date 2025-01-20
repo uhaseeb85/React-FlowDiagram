@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { PlusCircle, X, ChevronDown, ChevronUp, ArrowRight, ArrowDown, Play, StopCircle, Check, XCircle, Download, Upload, Moon, Sun } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { PlusCircle, X, ChevronDown, ChevronUp, ArrowRight, ArrowDown, Play, StopCircle, Check, XCircle, Download, Upload, Moon, Sun, Save } from 'lucide-react';
 import FlowSimulation from './components/FlowSimulation';
 import { DarkModeProvider, useDarkMode } from './context/DarkModeContext';
 
@@ -28,10 +28,16 @@ interface Step {
   failureStepId?: string;
 }
 
+const LOCAL_STORAGE_KEY = 'flowDiagramConfig';
+
 // Main Component
 const FlowDiagramBuilder = () => {
   const { isDarkMode, toggleDarkMode } = useDarkMode();
-  const [steps, setSteps] = useState<Step[]>([]);
+  const [steps, setSteps] = useState<Step[]>(() => {
+    // Load initial state from localStorage
+    const savedConfig = localStorage.getItem(LOCAL_STORAGE_KEY);
+    return savedConfig ? JSON.parse(savedConfig) : [];
+  });
   const [newStepTitle, setNewStepTitle] = useState('');
   const [isSimulating, setIsSimulating] = useState(false);
   const [currentStepId, setCurrentStepId] = useState<string | null>(null);
@@ -42,6 +48,11 @@ const FlowDiagramBuilder = () => {
   }>>([]);
   const [showSimulation, setShowSimulation] = useState(false);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+
+  // Auto-save whenever steps change
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(steps));
+  }, [steps]);
 
   const selectedStep = steps.find(step => step.id === selectedStepId);
 
@@ -243,6 +254,13 @@ const FlowDiagramBuilder = () => {
     reader.readAsText(file);
   };
 
+  // Manual save function
+  const saveConfiguration = () => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(steps));
+    // Show a toast or notification
+    alert('Configuration saved successfully!');
+  };
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-800'}`}>
       {/* Header */}
@@ -252,6 +270,19 @@ const FlowDiagramBuilder = () => {
             Flow Diagram Builder
           </h1>
           <div className="flex items-center gap-4">
+            {/* Save Button */}
+            <button
+              onClick={saveConfiguration}
+              className={`px-6 py-2.5 rounded-lg flex items-center gap-2 font-semibold ${
+                isDarkMode 
+                  ? 'bg-purple-600 hover:bg-purple-700' 
+                  : 'bg-purple-100 text-purple-600 hover:bg-purple-200'
+              }`}
+            >
+              <Save className="w-5 h-5" />
+              Save Config
+            </button>
+
             {/* Simulation Button */}
             <button
               onClick={() => setShowSimulation(true)}
@@ -281,8 +312,8 @@ const FlowDiagramBuilder = () => {
             {/* Import Button */}
             <label className={`px-6 py-2.5 rounded-lg flex items-center gap-2 font-semibold cursor-pointer ${
               isDarkMode 
-                ? 'bg-purple-600 hover:bg-purple-700' 
-                : 'bg-purple-100 text-purple-600 hover:bg-purple-200'
+                ? 'bg-yellow-600 hover:bg-yellow-700' 
+                : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'
             }`}>
               <Upload className="w-5 h-5" />
               Import

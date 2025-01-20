@@ -28,11 +28,9 @@ interface FlowSimulationProps {
 
 const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
   const { isDarkMode } = useDarkMode();
-  // Initialize with the first step
-  const firstStep = steps[0];
-  const [currentStepId, setCurrentStepId] = useState<string | null>(firstStep?.id || null);
+  const [currentStepId, setCurrentStepId] = useState<string | null>(steps[0]?.id || null);
   const [currentSubStepIndex, setCurrentSubStepIndex] = useState<number>(0);
-  const [visitedStepIds, setVisitedStepIds] = useState<string[]>(firstStep ? [firstStep.id] : []);
+  const [visitedStepIds, setVisitedStepIds] = useState<string[]>([steps[0]?.id || '']);
   const [history, setHistory] = useState<Array<{ 
     stepId: string; 
     result: 'success' | 'failure';
@@ -184,7 +182,7 @@ const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
 
       {/* Flow Diagram */}
       <div className="p-8">
-        <div className={`flex ${isVerticalLayout ? 'flex-col' : 'flex-row'} items-center gap-4`}>
+        <div className={`flex ${isVerticalLayout ? 'flex-col' : 'flex-row'} items-center gap-8`}>
           {visibleSteps.map((step, index) => {
             const isCurrentStep = step.id === currentStepId;
             const stepHistory = history.find(h => h.stepId === step.id);
@@ -192,11 +190,12 @@ const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
 
             return (
               <React.Fragment key={step.id}>
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center gap-4">
+                  {/* Main Step */}
                   <div
                     className={`
-                      w-32 h-32 rounded-full flex items-center justify-center
-                      transition-all duration-200
+                      w-48 h-16 rounded-[20px] flex items-center justify-center
+                      transition-all duration-200 relative
                       ${isCurrentStep ? 'ring-2 ring-blue-500' : ''}
                       ${isVisited 
                         ? stepHistory?.result === 'success' 
@@ -210,46 +209,40 @@ const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
                   >
                     <span className="font-semibold">{step.title}</span>
                   </div>
-                  
-                  {/* Sub-steps panel */}
+
+                  {/* Sub-steps */}
                   {isCurrentStep && step.subSteps.length > 0 && (
-                    <div className="mt-4 bg-gray-800 p-4 rounded-lg min-w-[300px]">
+                    <div className="space-y-2 min-w-[300px]">
                       {step.subSteps.map((subStep, subIndex) => (
                         <div 
                           key={subStep.id}
                           className={`
-                            p-3 mb-2 rounded
-                            ${currentSubStepIndex === subIndex ? 'bg-gray-700' : 'bg-gray-800'}
+                            w-full h-12 rounded-[16px] flex items-center justify-between px-4
+                            ${currentSubStepIndex === subIndex 
+                              ? isDarkMode ? 'bg-gray-700' : 'bg-blue-50'
+                              : isDarkMode ? 'bg-gray-800' : 'bg-white'
+                            }
                             ${currentSubStepIndex > subIndex ? 'opacity-50' : ''}
+                            border ${isDarkMode ? 'border-gray-600' : 'border-gray-200'}
                           `}
                         >
-                          <div className="flex justify-between items-center">
-                            <span>{subStep.content}</span>
-                            {currentSubStepIndex === subIndex && (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleSubStepResult('success')}
-                                  className="p-2 bg-green-500 rounded-full hover:bg-green-600"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleSubStepResult('failure')}
-                                  className="p-2 bg-red-500 rounded-full hover:bg-red-600"
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )}
-                            {stepHistory?.subStepResults?.[subIndex] && (
-                              <span className={`
-                                text-sm
-                                ${stepHistory.subStepResults[subIndex] === 'success' ? 'text-green-500' : 'text-red-500'}
-                              `}>
-                                {stepHistory.subStepResults[subIndex]}
-                              </span>
-                            )}
-                          </div>
+                          <span>{subStep.content}</span>
+                          {currentSubStepIndex === subIndex && (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleSubStepResult('success')}
+                                className="p-2 bg-green-500 rounded-full hover:bg-green-600"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleSubStepResult('failure')}
+                                className="p-2 bg-red-500 rounded-full hover:bg-red-600"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -266,7 +259,7 @@ const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
             );
           })}
           {currentStepId === null && history.length > 0 && (
-            <div className="w-32 h-32 rounded-full bg-gray-600 flex items-center justify-center">
+            <div className="w-48 h-16 rounded-[20px] bg-gray-600 flex items-center justify-center">
               <span className="font-semibold">END</span>
             </div>
           )}
