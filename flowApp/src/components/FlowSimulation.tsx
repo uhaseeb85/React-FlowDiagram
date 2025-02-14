@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, RotateCcw, Camera, ArrowRight, Layout, Check, XCircle } from 'lucide-react';
+import { X, RotateCcw, Camera, Layout, Check, XCircle } from 'lucide-react';
 import { useDarkMode } from '../context/DarkModeContext';
 
 interface SubStep {

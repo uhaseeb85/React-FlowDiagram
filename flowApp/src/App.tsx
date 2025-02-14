@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, X, ChevronDown, ChevronUp, ArrowRight, ArrowDown, Play, StopCircle, Check, XCircle, Download, Upload, Moon, Sun, Save } from 'lucide-react';
+import { PlusCircle, X, ArrowRight, Play,  Check, Download, Upload, Moon, Sun, Save } from 'lucide-react';
 import FlowSimulation from './components/FlowSimulation';
 import { DarkModeProvider, useDarkMode } from './context/DarkModeContext';
 import { motion, AnimatePresence } from 'framer-motion';
