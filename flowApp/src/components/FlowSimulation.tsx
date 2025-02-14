@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, RotateCcw, Camera, Layout, Check, XCircle } from 'lucide-react';
+import { X, Check, XCircle, ArrowRight } from 'lucide-react';
 import { useDarkMode } from '../context/DarkModeContext';
 
 interface SubStep {
@@ -28,241 +28,144 @@ interface FlowSimulationProps {
 
 const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
   const { isDarkMode } = useDarkMode();
-  const [currentStepId, setCurrentStepId] = useState<string | null>(steps[0]?.id || null);
-  const [currentSubStepIndex, setCurrentSubStepIndex] = useState<number>(0);
-  const [visitedStepIds, setVisitedStepIds] = useState<string[]>([steps[0]?.id || '']);
-  const [history, setHistory] = useState<Array<{ 
-    stepId: string; 
+  const [currentStepId, setCurrentStepId] = useState<string>(steps[0]?.id);
+  const [currentSubStepIndex, setCurrentSubStepIndex] = useState(0);
+  const [simulationHistory, setSimulationHistory] = useState<Array<{
+    stepId: string;
+    subStepIndex: number;
     result: 'success' | 'failure';
-    subStepResults?: Array<'success' | 'failure'>;
   }>>([]);
-  const [isVerticalLayout, setIsVerticalLayout] = useState(false);
 
-  // Add console logs for debugging
-  console.log('Current Step ID:', currentStepId);
-  console.log('Visited Step IDs:', visitedStepIds);
-  console.log('Visible Steps:', steps.filter(step => visitedStepIds.includes(step.id)));
+  const currentStep = steps.find(s => s.id === currentStepId);
+  const currentSubStep = currentStep?.subSteps[currentSubStepIndex];
 
-  const handleSubStepResult = (result: 'success' | 'failure') => {
-    const currentStep = steps.find(s => s.id === currentStepId);
-    if (!currentStep) return;
+  const handleResult = (result: 'success' | 'failure') => {
+    if (!currentStep || !currentSubStep) return;
 
-    const currentSubStep = currentStep.subSteps[currentSubStepIndex];
+    // Record in history
+    setSimulationHistory(prev => [...prev, {
+      stepId: currentStep.id,
+      subStepIndex: currentSubStepIndex,
+      result
+    }]);
 
-    // Update history with sub-step result
-    setHistory(prev => {
-      const stepHistory = prev.find(h => h.stepId === currentStepId);
-      if (stepHistory) {
-        return prev.map(h => 
-          h.stepId === currentStepId 
-            ? {
-                ...h,
-                subStepResults: [...(h.subStepResults || []), result]
-              }
-            : h
-        );
-      } else {
-        return [...prev, { 
-          stepId: currentStepId, 
-          result: 'pending',
-          subStepResults: [result]
-        }];
-      }
-    });
-
-    let nextStepId: string | undefined;
-    if (result === 'failure') {
-      nextStepId = currentSubStep.failureAction === 'goto' 
-        ? currentSubStep.failureStepId 
-        : currentStep.failureStepId;
-      
-      if (nextStepId) {
-        setHistory(prev => prev.map(h => 
-          h.stepId === currentStepId 
-            ? { ...h, result: 'failure' }
-            : h
-        ));
-        setCurrentStepId(nextStepId);
+    // Handle sub-step navigation
+    if (result === 'success') {
+      if (currentSubStep.successAction === 'next') {
+        // Move to next sub-step
+        if (currentSubStepIndex < currentStep.subSteps.length - 1) {
+          setCurrentSubStepIndex(prev => prev + 1);
+        } else if (currentStep.successStepId) {
+          // Move to next step
+          setCurrentStepId(currentStep.successStepId);
+          setCurrentSubStepIndex(0);
+        }
+      } else if (currentSubStep.successAction === 'goto' && currentSubStep.successStepId) {
+        setCurrentStepId(currentSubStep.successStepId);
         setCurrentSubStepIndex(0);
-        setVisitedStepIds(prev => [...prev, nextStepId!]);
       }
     } else {
-      if (currentSubStep.successAction === 'goto' && currentSubStep.successStepId) {
-        nextStepId = currentSubStep.successStepId;
-        setHistory(prev => prev.map(h => 
-          h.stepId === currentStepId 
-            ? { ...h, result: 'success' }
-            : h
-        ));
-        setCurrentStepId(nextStepId);
+      if (currentSubStep.failureAction === 'next') {
+        if (currentSubStepIndex < currentStep.subSteps.length - 1) {
+          setCurrentSubStepIndex(prev => prev + 1);
+        } else if (currentStep.failureStepId) {
+          setCurrentStepId(currentStep.failureStepId);
+          setCurrentSubStepIndex(0);
+        }
+      } else if (currentSubStep.failureAction === 'goto' && currentSubStep.failureStepId) {
+        setCurrentStepId(currentSubStep.failureStepId);
         setCurrentSubStepIndex(0);
-        setVisitedStepIds(prev => [...prev, nextStepId!]);
-      } else if (currentSubStepIndex < currentStep.subSteps.length - 1) {
-        setCurrentSubStepIndex(prev => prev + 1);
-      } else if (currentStep.successStepId) {
-        nextStepId = currentStep.successStepId;
-        setHistory(prev => prev.map(h => 
-          h.stepId === currentStepId 
-            ? { ...h, result: 'success' }
-            : h
-        ));
-        setCurrentStepId(nextStepId);
-        setCurrentSubStepIndex(0);
-        setVisitedStepIds(prev => [...prev, nextStepId!]);
       }
     }
   };
 
-  const resetSimulation = () => {
-    setCurrentStepId(steps[0]?.id || null);
-    setCurrentSubStepIndex(0);
-    setVisitedStepIds([steps[0]?.id || '']);
-    setHistory([]);
-  };
-
-  const exportImage = () => {
-    // Implement image export functionality
-    console.log('Export image');
-  };
-
-  // Filter steps to show only visited ones plus the current one
-  const visibleSteps = steps.filter(step => visitedStepIds.includes(step.id));
-
   return (
-    <div className={`fixed inset-0 ${isDarkMode ? 'bg-[#1a1f2e]' : 'bg-gray-100'} text-${isDarkMode ? 'white' : 'gray-800'}`}>
+    <div className={`fixed inset-0 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} p-6`}>
       {/* Header */}
-      <div className={`flex justify-between items-center p-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-        <h2 className="text-xl font-bold">Flow Simulation</h2>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setIsVerticalLayout(!isVerticalLayout)}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-              isDarkMode 
-                ? 'bg-gray-800 hover:bg-gray-700' 
-                : 'bg-white hover:bg-gray-100'
-            }`}
-          >
-            <Layout className="w-4 h-4" />
-            {isVerticalLayout ? 'Horizontal Layout' : 'Vertical Layout'}
-          </button>
-          <button
-            onClick={exportImage}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-              isDarkMode 
-                ? 'bg-gray-800 hover:bg-gray-700' 
-                : 'bg-white hover:bg-gray-100'
-            }`}
-          >
-            <Camera className="w-4 h-4" />
-            Export Image
-          </button>
-          <button
-            onClick={resetSimulation}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-              isDarkMode 
-                ? 'bg-gray-800 hover:bg-gray-700' 
-                : 'bg-white hover:bg-gray-100'
-            }`}
-          >
-            <RotateCcw className="w-4 h-4" />
-            Reset
-          </button>
-          <button
-            onClick={onClose}
-            className={`px-4 py-2 rounded-lg ${
-              isDarkMode 
-                ? 'bg-gray-800 hover:bg-gray-700' 
-                : 'bg-white hover:bg-gray-100'
-            }`}
-          >
-            Close
-          </button>
-        </div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+          Flow Simulation
+        </h2>
+        <button
+          onClick={onClose}
+          className="p-2 rounded-lg bg-red-500 text-white hover:bg-red-600"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
-      {/* Flow Diagram */}
-      <div className="p-8">
-        <div className={`flex ${isVerticalLayout ? 'flex-col' : 'flex-row'} items-center gap-8`}>
-          {visibleSteps.map((step, index) => {
-            const isCurrentStep = step.id === currentStepId;
-            const stepHistory = history.find(h => h.stepId === step.id);
-            const isVisited = stepHistory !== undefined;
+      {/* Current Step Display */}
+      <div className={`mb-8 p-6 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+        <div className="flex items-center gap-4 mb-4">
+          <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+            {currentStep?.title}
+          </h3>
+          <span className={`px-3 py-1 rounded-full text-sm ${
+            currentStep?.type === 'success' 
+              ? 'bg-green-100 text-green-800' 
+              : currentStep?.type === 'failure'
+              ? 'bg-red-100 text-red-800'
+              : 'bg-blue-100 text-blue-800'
+          }`}>
+            {currentStep?.type}
+          </span>
+        </div>
 
+        {currentSubStep && (
+          <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <ArrowRight className="w-4 h-4" />
+              <span className={`font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                Sub-step {currentSubStepIndex + 1} of {currentStep?.subSteps.length}
+              </span>
+            </div>
+            <p className={`mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              {currentSubStep.content}
+            </p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => handleResult('success')}
+                className="px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 flex items-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                Success
+              </button>
+              <button
+                onClick={() => handleResult('failure')}
+                className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 flex items-center gap-2"
+              >
+                <XCircle className="w-4 h-4" />
+                Failure
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Simulation History */}
+      <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+        <h4 className={`text-lg font-medium mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+          Simulation History
+        </h4>
+        <div className="space-y-2">
+          {simulationHistory.map((record, index) => {
+            const step = steps.find(s => s.id === record.stepId);
             return (
-              <React.Fragment key={step.id}>
-                <div className="flex flex-col items-center gap-4">
-                  {/* Main Step */}
-                  <div
-                    className={`
-                      w-48 h-16 rounded-[20px] flex items-center justify-center
-                      transition-all duration-200 relative
-                      ${isCurrentStep ? 'ring-2 ring-blue-500' : ''}
-                      ${isVisited 
-                        ? stepHistory?.result === 'success' 
-                          ? 'bg-green-500' 
-                          : stepHistory?.result === 'failure'
-                            ? 'bg-red-500'
-                            : 'bg-white text-gray-900'
-                        : 'bg-white text-gray-900'
-                      }
-                    `}
-                  >
-                    <span className="font-semibold">{step.title}</span>
-                  </div>
-
-                  {/* Sub-steps */}
-                  {isCurrentStep && step.subSteps.length > 0 && (
-                    <div className="space-y-2 min-w-[300px]">
-                      {step.subSteps.map((subStep, subIndex) => (
-                        <div 
-                          key={subStep.id}
-                          className={`
-                            w-full h-12 rounded-[16px] flex items-center justify-between px-4
-                            ${currentSubStepIndex === subIndex 
-                              ? isDarkMode ? 'bg-gray-700' : 'bg-blue-50'
-                              : isDarkMode ? 'bg-gray-800' : 'bg-white'
-                            }
-                            ${currentSubStepIndex > subIndex ? 'opacity-50' : ''}
-                            border ${isDarkMode ? 'border-gray-600' : 'border-gray-200'}
-                          `}
-                        >
-                          <span>{subStep.content}</span>
-                          {currentSubStepIndex === subIndex && (
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleSubStepResult('success')}
-                                className="p-2 bg-green-500 rounded-full hover:bg-green-600"
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleSubStepResult('failure')}
-                                className="p-2 bg-red-500 rounded-full hover:bg-red-600"
-                              >
-                                <XCircle className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                
-                {index < visibleSteps.length - 1 && (
-                  <div className={`
-                    ${isVerticalLayout ? 'h-8 w-px' : 'w-8 h-px'}
-                    bg-gray-600
-                  `} />
-                )}
-              </React.Fragment>
+              <div 
+                key={index}
+                className={`flex items-center gap-3 p-2 rounded ${
+                  isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+                }`}
+              >
+                <span className={record.result === 'success' ? 'text-green-500' : 'text-red-500'}>
+                  {record.result === 'success' ? <Check className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                </span>
+                <span className={isDarkMode ? 'text-gray-200' : 'text-gray-700'}>
+                  {step?.title} - Sub-step {record.subStepIndex + 1}
+                </span>
+              </div>
             );
           })}
-          {currentStepId === null && history.length > 0 && (
-            <div className="w-48 h-16 rounded-[20px] bg-gray-600 flex items-center justify-center">
-              <span className="font-semibold">END</span>
-            </div>
-          )}
         </div>
       </div>
     </div>
