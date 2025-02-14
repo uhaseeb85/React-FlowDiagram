@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Check, XCircle, ArrowRight } from 'lucide-react';
 import { useDarkMode } from '../context/DarkModeContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface SubStep {
   id: string;
@@ -14,7 +15,7 @@ interface SubStep {
 interface Step {
   id: string;
   title: string;
-  type: 'normal' | 'success' | 'failure';
+  type: 'normal' | 'success' | 'failure' | 'decision';
   subSteps: SubStep[];
   expanded: boolean;
   successStepId?: string;
@@ -79,6 +80,106 @@ const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
     }
   };
 
+  const renderFlowDiagram = () => {
+    if (simulationHistory.length === 0) return null;
+
+    // Flatten the history into a single sequence
+    const flatHistory = simulationHistory.map((record, index) => {
+      const step = steps.find(s => s.id === record.stepId);
+      return {
+        ...record,
+        stepTitle: step?.title || '',
+        isLastInStep: index < simulationHistory.length - 1 && 
+          simulationHistory[index + 1].stepId !== record.stepId
+      };
+    });
+
+    return (
+      <div className="relative w-full h-[200px] mt-4 overflow-auto">
+        <div className="absolute inset-0 p-4">
+          <div className="flex items-center space-x-4">
+            <AnimatePresence>
+              {flatHistory.map((record, index) => (
+                <React.Fragment key={index}>
+                  {/* Node */}
+                  <motion.div
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.2, duration: 0.5 }}
+                    className="flex flex-col items-center"
+                  >
+                    {/* Step title (only show for first sub-step of each step) */}
+                    {index === 0 || flatHistory[index - 1].stepId !== record.stepId ? (
+                      <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`w-40 p-2 mb-2 text-center ${
+                          isDarkMode ? 'bg-gray-800' : 'bg-white'
+                        } rounded-lg shadow-lg border-2 border-blue-500`}
+                      >
+                        <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                          {record.stepTitle}
+                        </span>
+                      </motion.div>
+                    ) : null}
+
+                    {/* Sub-step */}
+                    <motion.div
+                      className={`w-40 p-3 ${
+                        isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+                      } rounded-lg shadow border-2 ${
+                        record.result === 'success' 
+                          ? 'border-green-500' 
+                          : 'border-red-500'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
+                          Sub-step {record.subStepIndex + 1}
+                        </span>
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ delay: index * 0.2 + 0.3 }}
+                        >
+                          {record.result === 'success' ? (
+                            <Check className="w-4 h-4 text-green-500" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-red-500" />
+                          )}
+                        </motion.div>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+
+                  {/* Arrow to next node */}
+                  {index < flatHistory.length - 1 && (
+                    <motion.div
+                      initial={{ opacity: 0, scaleX: 0 }}
+                      animate={{ opacity: 1, scaleX: 1 }}
+                      transition={{ delay: index * 0.2 + 0.2, duration: 0.3 }}
+                      className="flex items-center"
+                    >
+                      <div className={`w-8 h-0.5 ${
+                        record.result === 'success' ? 'bg-green-500' : 'bg-red-500'
+                      }`} />
+                      <div className={`w-0 h-0 border-t-[6px] border-t-transparent 
+                        border-b-[6px] border-b-transparent border-l-[8px] ${
+                        record.result === 'success' 
+                          ? 'border-l-green-500' 
+                          : 'border-l-red-500'
+                      }`} />
+                    </motion.div>
+                  )}
+                </React.Fragment>
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={`fixed inset-0 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} p-6`}>
       {/* Header */}
@@ -95,7 +196,11 @@ const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
       </div>
 
       {/* Current Step Display */}
-      <div className={`mb-8 p-6 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`mb-8 p-6 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}
+      >
         <div className="flex items-center gap-4 mb-4">
           <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
             {currentStep?.title}
@@ -140,34 +245,19 @@ const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
 
-      {/* Simulation History */}
-      <div className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+      {/* Flow Diagram */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}
+      >
         <h4 className={`text-lg font-medium mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-          Simulation History
+          Flow Progress
         </h4>
-        <div className="space-y-2">
-          {simulationHistory.map((record, index) => {
-            const step = steps.find(s => s.id === record.stepId);
-            return (
-              <div 
-                key={index}
-                className={`flex items-center gap-3 p-2 rounded ${
-                  isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-                }`}
-              >
-                <span className={record.result === 'success' ? 'text-green-500' : 'text-red-500'}>
-                  {record.result === 'success' ? <Check className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                </span>
-                <span className={isDarkMode ? 'text-gray-200' : 'text-gray-700'}>
-                  {step?.title} - Sub-step {record.subStepIndex + 1}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+        {renderFlowDiagram()}
+      </motion.div>
     </div>
   );
 };
