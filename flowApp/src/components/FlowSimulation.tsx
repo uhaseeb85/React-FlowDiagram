@@ -29,160 +29,194 @@ interface FlowSimulationProps {
 
 const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
   const { isDarkMode } = useDarkMode();
-  const [currentStepId, setCurrentStepId] = useState<string>(steps[0]?.id);
-  const [currentSubStepIndex, setCurrentSubStepIndex] = useState(0);
-  const [simulationHistory, setSimulationHistory] = useState<Array<{
-    stepId: string;
+  const [activeStep, setActiveStep] = useState(steps[0]);
+  const [activeSubStepIndex, setActiveSubStepIndex] = useState(0);
+  const [flowPath, setFlowPath] = useState<Array<{
+    step: Step;
     subStepIndex: number;
     result: 'success' | 'failure';
   }>>([]);
+  const [isComplete, setIsComplete] = useState(false);
 
-  const currentStep = steps.find(s => s.id === currentStepId);
-  const currentSubStep = currentStep?.subSteps[currentSubStepIndex];
+  const handleChoice = (result: 'success' | 'failure') => {
+    if (!activeStep) return;
 
-  const handleResult = (result: 'success' | 'failure') => {
-    if (!currentStep || !currentSubStep) return;
+    const currentSubStep = activeStep.subSteps[activeSubStepIndex];
+    if (!currentSubStep) return;
 
-    // Record in history
-    setSimulationHistory(prev => [...prev, {
-      stepId: currentStep.id,
-      subStepIndex: currentSubStepIndex,
+    // Add current step to path
+    setFlowPath(prev => [...prev, {
+      step: activeStep,
+      subStepIndex: activeSubStepIndex,
       result
     }]);
 
-    // Handle sub-step navigation
+    // Determine next step
+    let nextStepId: string | undefined;
     if (result === 'success') {
       if (currentSubStep.successAction === 'next') {
-        // Move to next sub-step
-        if (currentSubStepIndex < currentStep.subSteps.length - 1) {
-          setCurrentSubStepIndex(prev => prev + 1);
-        } else if (currentStep.successStepId) {
-          // Move to next step
-          setCurrentStepId(currentStep.successStepId);
-          setCurrentSubStepIndex(0);
+        if (activeSubStepIndex < activeStep.subSteps.length - 1) {
+          setActiveSubStepIndex(activeSubStepIndex + 1);
+          return;
         }
-      } else if (currentSubStep.successAction === 'goto' && currentSubStep.successStepId) {
-        setCurrentStepId(currentSubStep.successStepId);
-        setCurrentSubStepIndex(0);
+        nextStepId = activeStep.successStepId;
+      } else {
+        nextStepId = currentSubStep.successStepId;
       }
     } else {
       if (currentSubStep.failureAction === 'next') {
-        if (currentSubStepIndex < currentStep.subSteps.length - 1) {
-          setCurrentSubStepIndex(prev => prev + 1);
-        } else if (currentStep.failureStepId) {
-          setCurrentStepId(currentStep.failureStepId);
-          setCurrentSubStepIndex(0);
-        }
-      } else if (currentSubStep.failureAction === 'goto' && currentSubStep.failureStepId) {
-        setCurrentStepId(currentSubStep.failureStepId);
-        setCurrentSubStepIndex(0);
+        nextStepId = activeStep.failureStepId;
+      } else {
+        nextStepId = currentSubStep.failureStepId;
       }
+    }
+
+    if (nextStepId) {
+      const nextStep = steps.find(s => s.id === nextStepId);
+      if (nextStep) {
+        // Check if next step has sub-steps
+        if (nextStep.subSteps.length === 0) {
+          setIsComplete(true);
+          setFlowPath(prev => [...prev, {
+            step: nextStep,
+            subStepIndex: 0,
+            result: 'success'
+          }]);
+        } else {
+          setActiveStep(nextStep);
+          setActiveSubStepIndex(0);
+        }
+      }
+    } else {
+      // No next step means we've reached the end
+      setIsComplete(true);
     }
   };
 
   const renderFlowDiagram = () => {
-    if (simulationHistory.length === 0) return null;
-
-    // Flatten the history into a single sequence
-    const flatHistory = simulationHistory.map((record, index) => {
-      const step = steps.find(s => s.id === record.stepId);
-      return {
-        ...record,
-        stepTitle: step?.title || '',
-        isLastInStep: index < simulationHistory.length - 1 && 
-          simulationHistory[index + 1].stepId !== record.stepId
-      };
-    });
-
     return (
-      <div className="relative w-full h-[200px] mt-4 overflow-auto">
-        <div className="absolute inset-0 p-4">
-          <div className="flex items-center space-x-4">
-            <AnimatePresence>
-              {flatHistory.map((record, index) => (
-                <React.Fragment key={index}>
-                  {/* Node */}
-                  <motion.div
-                    initial={{ opacity: 0, x: 50 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.2, duration: 0.5 }}
-                    className="flex flex-col items-center"
-                  >
-                    {/* Step title (only show for first sub-step of each step) */}
-                    {index === 0 || flatHistory[index - 1].stepId !== record.stepId ? (
-                      <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`w-40 p-2 mb-2 text-center ${
-                          isDarkMode ? 'bg-gray-800' : 'bg-white'
-                        } rounded-lg shadow-lg border-2 border-blue-500`}
-                      >
-                        <span className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                          {record.stepTitle}
-                        </span>
-                      </motion.div>
-                    ) : null}
-
-                    {/* Sub-step */}
-                    <motion.div
-                      className={`w-40 p-3 ${
-                        isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-                      } rounded-lg shadow border-2 ${
-                        record.result === 'success' 
-                          ? 'border-green-500' 
-                          : 'border-red-500'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className={`text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>
-                          Sub-step {record.subStepIndex + 1}
-                        </span>
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ delay: index * 0.2 + 0.3 }}
-                        >
-                          {record.result === 'success' ? (
-                            <Check className="w-4 h-4 text-green-500" />
-                          ) : (
-                            <XCircle className="w-4 h-4 text-red-500" />
-                          )}
-                        </motion.div>
-                      </div>
-                    </motion.div>
-                  </motion.div>
-
-                  {/* Arrow to next node */}
-                  {index < flatHistory.length - 1 && (
-                    <motion.div
-                      initial={{ opacity: 0, scaleX: 0 }}
-                      animate={{ opacity: 1, scaleX: 1 }}
-                      transition={{ delay: index * 0.2 + 0.2, duration: 0.3 }}
-                      className="flex items-center"
-                    >
-                      <div className={`w-8 h-0.5 ${
-                        record.result === 'success' ? 'bg-green-500' : 'bg-red-500'
-                      }`} />
-                      <div className={`w-0 h-0 border-t-[6px] border-t-transparent 
-                        border-b-[6px] border-b-transparent border-l-[8px] ${
-                        record.result === 'success' 
-                          ? 'border-l-green-500' 
-                          : 'border-l-red-500'
-                      }`} />
-                    </motion.div>
+      <div className="relative min-h-[300px] p-8 overflow-x-auto">
+        <div className="flex items-start gap-4 min-w-max">
+          <AnimatePresence mode="popLayout">
+            {flowPath.map((node, index) => (
+              <motion.div
+                key={`${node.step.id}-${node.subStepIndex}`}
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                className="flex flex-col items-center"
+              >
+                {/* Step Node */}
+                <div className={`w-64 p-4 rounded-lg ${
+                  isDarkMode ? 'bg-gray-800' : 'bg-white'
+                } shadow-lg border-2 ${
+                  node.result === 'success' 
+                    ? 'border-green-500' 
+                    : 'border-red-500'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                      {node.step.title}
+                    </span>
+                    {node.result === 'success' 
+                      ? <Check className="w-4 h-4 text-green-500" />
+                      : <XCircle className="w-4 h-4 text-red-500" />
+                    }
+                  </div>
+                  {node.step.subSteps[node.subStepIndex] && (
+                    <div className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      Sub-step {node.subStepIndex + 1}: {node.step.subSteps[node.subStepIndex].content}
+                    </div>
                   )}
-                </React.Fragment>
-              ))}
-            </AnimatePresence>
-          </div>
+                </div>
+
+                {/* Arrow */}
+                {index < flowPath.length - 1 && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="flex items-center mx-4 h-8"
+                  >
+                    <div className={`w-12 h-0.5 ${
+                      node.result === 'success' ? 'bg-green-500' : 'bg-red-500'
+                    }`} />
+                    <div className={`w-0 h-0 border-t-[6px] border-t-transparent 
+                      border-b-[6px] border-b-transparent border-l-[8px] ${
+                      node.result === 'success' 
+                        ? 'border-l-green-500' 
+                        : 'border-l-red-500'
+                    }`} />
+                  </motion.div>
+                )}
+              </motion.div>
+            ))}
+
+            {/* Active Step (only show if not complete) */}
+            {!isComplete && (
+              <motion.div
+                key="active-step"
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex flex-col items-center"
+              >
+                <div className={`w-64 p-4 rounded-lg ${
+                  isDarkMode ? 'bg-gray-800' : 'bg-white'
+                } shadow-lg border-2 border-blue-500`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                      {activeStep.title}
+                    </span>
+                  </div>
+                  <div className={`text-sm mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Sub-step {activeSubStepIndex + 1}: {activeStep.subSteps[activeSubStepIndex]?.content}
+                  </div>
+                  
+                  {/* Choice Buttons */}
+                  <div className="flex justify-center gap-4">
+                    <button
+                      onClick={() => handleChoice('success')}
+                      className="px-4 py-2 rounded-lg bg-green-500 text-white 
+                        hover:bg-green-600 flex items-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      Success
+                    </button>
+                    <button
+                      onClick={() => handleChoice('failure')}
+                      className="px-4 py-2 rounded-lg bg-red-500 text-white 
+                        hover:bg-red-600 flex items-center gap-2"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Failure
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Completion Message */}
+            {isComplete && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={`text-center p-4 rounded-lg ${
+                  isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
+                } shadow-lg border-2 border-blue-500`}
+              >
+                <h3 className="text-lg font-medium mb-2">Flow Complete!</h3>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  The simulation has reached its end.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     );
   };
 
   return (
-    <div className={`fixed inset-0 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} p-6`}>
-      {/* Header */}
+    <div className={`fixed inset-0 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} p-6 overflow-auto`}>
       <div className="flex justify-between items-center mb-6">
         <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
           Flow Simulation
@@ -195,69 +229,7 @@ const FlowSimulation: React.FC<FlowSimulationProps> = ({ steps, onClose }) => {
         </button>
       </div>
 
-      {/* Current Step Display */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`mb-8 p-6 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}
-      >
-        <div className="flex items-center gap-4 mb-4">
-          <h3 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-            {currentStep?.title}
-          </h3>
-          <span className={`px-3 py-1 rounded-full text-sm ${
-            currentStep?.type === 'success' 
-              ? 'bg-green-100 text-green-800' 
-              : currentStep?.type === 'failure'
-              ? 'bg-red-100 text-red-800'
-              : 'bg-blue-100 text-blue-800'
-          }`}>
-            {currentStep?.type}
-          </span>
-        </div>
-
-        {currentSubStep && (
-          <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <ArrowRight className="w-4 h-4" />
-              <span className={`font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-                Sub-step {currentSubStepIndex + 1} of {currentStep?.subSteps.length}
-              </span>
-            </div>
-            <p className={`mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              {currentSubStep.content}
-            </p>
-            <div className="flex gap-4">
-              <button
-                onClick={() => handleResult('success')}
-                className="px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 flex items-center gap-2"
-              >
-                <Check className="w-4 h-4" />
-                Success
-              </button>
-              <button
-                onClick={() => handleResult('failure')}
-                className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 flex items-center gap-2"
-              >
-                <XCircle className="w-4 h-4" />
-                Failure
-              </button>
-            </div>
-          </div>
-        )}
-      </motion.div>
-
-      {/* Flow Diagram */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className={`p-4 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}
-      >
-        <h4 className={`text-lg font-medium mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-          Flow Progress
-        </h4>
-        {renderFlowDiagram()}
-      </motion.div>
+      {renderFlowDiagram()}
     </div>
   );
 };
